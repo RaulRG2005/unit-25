@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Operaciones aritméticas con imágenes - OpenCV.js</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      margin-top: 0;
+    }
+    #status {
+      padding: 8px 12px;
+      border-radius: 4px;
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      display: inline-block;
+      margin-bottom: 16px;
+    }
+    .ok {
+      background: #d4edda;
+      border-color: #c3e6cb;
+    }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .panel {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      flex: 1 1 280px;
+      min-width: 260px;
+    }
+    .panel h2 {
+      margin-top: 0;
+      font-size: 18px;
+    }
+    .panel img, .panel canvas {
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    button {
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      background: #fafafa;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #eaeaea;
+    }
+    input[type="file"] {
+      margin-top: 6px;
+    }
+    small {
+      color: #666;
+      display: block;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Operaciones aritméticas con imágenes (OpenCV.js)</h1>
+  <p id="status">Cargando OpenCV.js...</p>
+
+  <div class="container">
+    <div class="panel">
+      <h2>Imagen 1</h2>
+      <img id="imageSrc1" alt="Imagen 1" />
+      <input type="file" id="fileInput1" accept="image/*">
+      <small>Selecciona la primera imagen.</small>
+    </div>
+
+    <div class="panel">
+      <h2>Imagen 2</h2>
+      <img id="imageSrc2" alt="Imagen 2" />
+      <input type="file" id="fileInput2" accept="image/*">
+      <small>Selecciona la segunda imagen.</small>
+    </div>
+
+    <div class="panel">
+      <h2>Resultado</h2>
+      <canvas id="canvasOutput"></canvas>
+      <div class="controls">
+        <button onclick="doAdd()">Suma (add)</button>
+        <button onclick="doSub()">Resta (subtract)</button>
+        <button onclick="doAnd()">AND</button>
+        <button onclick="doOr()">OR</button>
+        <button onclick="doXor()">XOR</button>
+        <button onclick="doNot1()">NOT (sobre imagen 1)</button>
+        <button onclick="clearOutput()">Limpiar</button>
+      </div>
+      <small>Las operaciones usan las funciones cv.add, cv.subtract y cv.bitwise_* de OpenCV.js.</small>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    // Referencias a los elementos de la página
+    const imgElement1 = document.getElementById('imageSrc1');
+    const imgElement2 = document.getElementById('imageSrc2');
+    const fileInput1 = document.getElementById('fileInput1');
+    const fileInput2 = document.getElementById('fileInput2');
+    const statusElement = document.getElementById('status');
+    const canvasOutput = document.getElementById('canvasOutput');
+
+    // Se llama cuando OpenCV.js termina de cargarse
+    function onOpenCvReady() {
+      statusElement.textContent = 'OpenCV.js listo ✅';
+      statusElement.classList.add('ok');
+    }
+
+    // Carga de las imágenes de los inputs en los <img>
+    function setupInput(imgElement, fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          imgElement.src = URL.createObjectURL(e.target.files[0]);
+        }
+      });
+    }
+
+    setupInput(imgElement1, fileInput1);
+    setupInput(imgElement2, fileInput2);
+
+    function haveBothImages() {
+      return imgElement1.src && imgElement2.src &&
+             imgElement1.complete && imgElement1.naturalWidth > 0 &&
+             imgElement2.complete && imgElement2.naturalWidth > 0;
+    }
+
+    function alertNeedImages() {
+      alert('Carga las dos imágenes antes de aplicar esta operación.');
+    }
+
+    // Prepara cv.Mat de ambas imágenes y fuerza que tengan el mismo tamaño
+    function prepareTwoMats() {
+      if (!haveBothImages()) {
+        alertNeedImages();
+        return null;
+      }
+
+      let src1 = cv.imread(imgElement1);
+      let src2 = cv.imread(imgElement2);
+
+      // Si no tienen el mismo tamaño, redimensionamos la segunda a la primera
+      if (src1.rows !== src2.rows || src1.cols !== src2.cols) {
+        let dsize = new cv.Size(src1.cols, src1.rows);
+        let resized = new cv.Mat();
+        cv.resize(src2, resized, dsize, 0, 0, cv.INTER_AREA);
+        src2.delete();
+        src2 = resized;
+      }
+
+      return { src1, src2 };
+    }
+
+    function showOnCanvas(mat) {
+      cv.imshow(canvasOutput, mat);
+    }
+
+    // Operaciones aritméticas / lógicas
+    function doAdd() {
+      let mats = prepareTwoMats();
+      if (!mats) return;
+
+      let dst = new cv.Mat();
+      let mask = new cv.Mat();
+
+      cv.add(mats.src1, mats.src2, dst, mask, -1);
+
+      showOnCanvas(dst);
+
+      mats.src1.delete();
+      mats.src2.delete();
+      dst.delete();
+      mask.delete();
+    }
+
+    function doSub() {
+      let mats = prepareTwoMats();
+      if (!mats) return;
+
+      let dst = new cv.Mat();
+      let mask = new cv.Mat();
+
+      cv.subtract(mats.src1, mats.src2, dst, mask, -1);
+
+      showOnCanvas(dst);
+
+      mats.src1.delete();
+      mats.src2.delete();
+      dst.delete();
+      mask.delete();
+    }
+
+    function doAnd() {
+      let mats = prepareTwoMats();
+      if (!mats) return;
+
+      let dst = new cv.Mat();
+      cv.bitwise_and(mats.src1, mats.src2, dst);
+
+      showOnCanvas(dst);
+
+      mats.src1.delete();
+      mats.src2.delete();
+      dst.delete();
+    }
+
+    function doOr() {
+      let mats = prepareTwoMats();
+      if (!mats) return;
+
+      let dst = new cv.Mat();
+      cv.bitwise_or(mats.src1, mats.src2, dst);
+
+      showOnCanvas(dst);
+
+      mats.src1.delete();
+      mats.src2.delete();
+      dst.delete();
+    }
+
+    function doXor() {
+      let mats = prepareTwoMats();
+      if (!mats) return;
+
+      let dst = new cv.Mat();
+      cv.bitwise_xor(mats.src1, mats.src2, dst);
+
+      showOnCanvas(dst);
+
+      mats.src1.delete();
+      mats.src2.delete();
+      dst.delete();
+    }
+
+    function doNot1() {
+      if (!(imgElement1.src && imgElement1.complete && imgElement1.naturalWidth > 0)) {
+        alert('Carga la imagen 1 antes de aplicar NOT.');
+        return;
+      }
+
+      let src1 = cv.imread(imgElement1);
+      let dst = new cv.Mat();
+
+      cv.bitwise_not(src1, dst);
+
+      showOnCanvas(dst);
+
+      src1.delete();
+      dst.delete();
+    }
+
+    function clearOutput() {
+      const ctx = canvasOutput.getContext('2d');
+      ctx.clearRect(0, 0, canvasOutput.width, canvasOutput.height);
+    }
+  </script>
+
+  <!-- Carga de OpenCV.js desde la documentación oficial 3.4 -->
+  <script async src="https://docs.opencv.org/3.4/opencv.js"
+          onload="onOpenCvReady();" type="text/javascript"></script>
+</body>
+</html>
